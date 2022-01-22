@@ -11,7 +11,7 @@ fun main() {
         println(connectionError.message)
     }
 
-    TwsCommManager.requestAccountSummary(NetLiquidation, GrossPositionValue, TotalCashValue, MaintMarginReq)
+    TwsCommManager.requestAccountSummary(NetLiquidation, GrossPositionValue, MaintMarginReq)
     TwsCommManager.requestPositions()
     TwsCommManager.requestMarketData(portfolio)
 
@@ -20,10 +20,12 @@ fun main() {
     while (true) {
         when(val message = TwsCommManager.messageQueue.poll(20, TimeUnit.SECONDS)) {
             null -> continue //message poll timed out
-            is GrossMessage -> message.account.gross = message.value
-            is NetMessage -> message.account.net = message.value
-            is MaintMessage -> message.account.maint = message.value
-            is CashMessage -> message.account.cash = message.value
+            is AccountSummaryMessage ->
+                when(message.tag) {
+                    GrossPositionValue -> message.account.gross = message.value
+                    NetLiquidation -> message.account.net = message.value
+                    MaintMarginReq -> message.account.maint = message.value
+                }
             is StockQuantityMessage -> message.account.setPositionSize(message.ticker, message.quantity)
             is StockPriceMessage -> PriceLookup.setLastPrice(message.ticker, message.price)
             is StockOpenMessage -> PriceLookup.setOpenPrice(message.ticker, message.price)
@@ -33,15 +35,17 @@ fun main() {
                 //mark the account as stale and request all account information again.
 
                 margin.markAccountStale()
-                //TODO clean out account messages form the queue?
+                //TODO clean out account messages from the queue?
                 TwsCommManager.cancelPositions()
                 TwsCommManager.requestPositions()
                 TwsCommManager.cancelAccountSummary()
-                TwsCommManager.requestAccountSummary(NetLiquidation, GrossPositionValue, TotalCashValue, MaintMarginReq)
+                TwsCommManager.requestAccountSummary(NetLiquidation, GrossPositionValue, MaintMarginReq)
                 isOrderOpen = false
             }
             is ErrorMessage -> {
+                when(message.code) {
 
+                }
             }
         }
 

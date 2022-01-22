@@ -32,13 +32,6 @@ class Account private constructor(val accountId: String) {
             field = value
         }
 
-    private var isCashInitialized = false
-    var cash: Double = 0.0
-        set(value) {
-            isCashInitialized = true
-            field = value
-        }
-
     private val positionSize = mutableMapOf<StockTicker, Double>()
 
     fun setPositionSize(ticker: StockTicker, size: Double) {
@@ -52,7 +45,6 @@ class Account private constructor(val accountId: String) {
         isNetInitialized = false
         isGrossInitialized = false
         isMaintInitialized = false
-        isCashInitialized = false
     }
 
     val maxSurvivableDrawdown: Double
@@ -67,5 +59,5 @@ class Account private constructor(val accountId: String) {
 
     val isInitialized: Boolean
         get() = isNetInitialized && isGrossInitialized &&
-                isMaintInitialized && isCashInitialized
+                isMaintInitialized
 }

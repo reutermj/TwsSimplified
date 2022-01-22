@@ -1,14 +1,16 @@
+import java.util.*
+
 class AccountSummaryTag private constructor (private val tagString: String) {
     companion object {
         private val lookup = mutableMapOf<String, AccountSummaryTag>()
 
         fun register(tagString: String): AccountSummaryTag {
             val tag = AccountSummaryTag(tagString)
-            lookup[tagString.toLowerCase()] = tag
+            lookup[tagString.lowercase()] = tag
             return tag
         }
 
-        operator fun get(tagString: String) = lookup[tagString.toLowerCase()]
+        operator fun get(tagString: String) = lookup[tagString.lowercase()]
     }
 
     override fun toString() = tagString

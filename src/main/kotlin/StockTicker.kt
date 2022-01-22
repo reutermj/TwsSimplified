@@ -1,5 +1,4 @@
 import com.ib.client.Contract
-import java.util.*
 
 class StockTicker private constructor(private val tickerString: String, private val primaryExchange: String) {
     companion object {
@@ -27,12 +26,8 @@ class StockTicker private constructor(private val tickerString: String, private 
     override fun toString() = tickerString
 }
 
-val AVUS = StockTicker.register("AVUS", "ARCA")
 val AVLV = StockTicker.register("AVLV", "ARCA")
 val AVUV = StockTicker.register("AVUV", "ARCA")
-val AVDE = StockTicker.register("AVDE", "ARCA")
 val AVIV = StockTicker.register("AVIV", "ARCA")
 val AVDV = StockTicker.register("AVDV", "ARCA")
-val AVEM = StockTicker.register("AVEM", "ARCA")
 val AVES = StockTicker.register("AVES", "ARCA")
-val AVIG = StockTicker.register("AVIG", "ARCA")
