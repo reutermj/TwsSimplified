@@ -33,7 +33,6 @@ fun main() {
                 //The order has been filled but potentially account information (NAV, position size, etc) hasn't been updated.
                 //To ensure that automated decisions aren't made based on stale information,
                 //mark the account as stale and request all account information again.
-
                 margin.markAccountStale()
                 //TODO clean out account messages from the queue?
                 TwsCommManager.cancelPositions()
