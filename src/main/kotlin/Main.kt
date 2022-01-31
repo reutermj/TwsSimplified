@@ -11,9 +11,9 @@ fun main() {
         println(connectionError.message)
     }
 
-    TwsCommManager.requestAccountSummary(NetLiquidation, GrossPositionValue, MaintMarginReq)
-    TwsCommManager.requestPositions()
-    TwsCommManager.requestMarketData(portfolio)
+    TwsCommManager.subscribeAccountSummary(NetLiquidation, GrossPositionValue, MaintMarginReq)
+    TwsCommManager.subscribePositions()
+    TwsCommManager.subscribeMarketData(portfolio)
 
     var isOrderOpen = false
 
@@ -33,12 +33,12 @@ fun main() {
                 //The order has been filled but potentially account information (NAV, position size, etc) hasn't been updated.
                 //To ensure that automated decisions aren't made based on stale information,
                 //mark the account as stale and request all account information again.
-                margin.markAccountStale()
+                 margin.markAccountStale()
                 //TODO clean out account messages from the queue?
                 TwsCommManager.cancelPositions()
-                TwsCommManager.requestPositions()
+                TwsCommManager.subscribePositions()
                 TwsCommManager.cancelAccountSummary()
-                TwsCommManager.requestAccountSummary(NetLiquidation, GrossPositionValue, MaintMarginReq)
+                TwsCommManager.subscribeAccountSummary(NetLiquidation, GrossPositionValue, MaintMarginReq)
                 isOrderOpen = false
             }
             is ErrorMessage -> {

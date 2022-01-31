@@ -3,19 +3,151 @@ import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
+/**
+ * Used to manage communication between TWS and application logic.
+ *
+ * Communication with TWS uses a two thread architecture. A thread started by [beginMessageReader] waits for TWS to
+ * send messages, parses the message into a [Message] object, and communicates the [Message] object to the application
+ * thread via [messageQueue]. Messages sent to TWS are sent on the application thread.
+ */
 object TwsCommManager : EWrapperBase() {
+    /**
+     * Used to communicate parsed [Message] objects from the reader thread to the application thread.
+     *
+     * The message reader thread parses messages sent from TWS into [Message] objects, adds them to this queue, and
+     * then the application thread can read the messages from this queue.
+     */
     val messageQueue = ArrayBlockingQueue<Message>(1000)
+
+    //Used for communication with TWS
     override val signal = EJavaSignal()
     override val client = EClientSocket(this, signal)
 
+    //Store the requests
     private var reqid: Int = 1
     private val reqidToStockTicker = ConcurrentHashMap<Int, StockTicker>()
 
+    //Keeps track of the order number.
+    //TWS requires that the sequence of order numbers is ascending, and
+    //this ascending sequence must be maintained between TWS sessions.
+    //TWS does send the most recent order id at initial connection.
     private var nextOrderId = 1
     private val isOrderedFilled = mutableMapOf<Int, Boolean>()
 
+    //The reqids of open account summary subscriptions.
     private val accountSummaryReqids = mutableListOf<Int>()
 
+    /**
+     * Connect to the TWS.
+     *
+     * @param ip The IP address of the computer with TWS running
+     * @param port The port TWS is listening to.
+     * Default ports: TWS live 7496, TWS paper 7497, IBGateway live 4001, IBGateway paper 4002.
+     * @param clientId Identifies the client connection.
+     * @return The [Thread] that the message reader is running on.
+     */
+    fun beginMessageReader(ip: String = "127.0.0.1", port: Int = 4001, clientId: Int = 2): Thread {
+        client.eConnect(ip, port, clientId)
+
+        val reader = EReader(client, signal)
+        reader.start()
+
+        return thread {
+            while (client.isConnected) {
+                signal.waitForSignal()
+                try {
+                    reader.processMsgs()
+                } catch (e: Exception) {
+                    println("Exception ${e.message}")
+                }
+            }
+        }
+    }
+
+    /**
+     * Disconnect from the TWS.
+     */
+    fun disconnect() {
+        client.eDisconnect()
+    }
+
+    /**
+     * Subscribes to account summary information for all accounts.
+     *
+     * @param first Desired account summary information
+     * @param rest Desired account summary information
+     */
+    fun subscribeAccountSummary(first: AccountSummaryTag, vararg rest: AccountSummaryTag) {
+        val id = reqid
+        reqid++
+        val tags = rest.fold(first.toString()) { l, r -> "$l,$r" }
+        client.reqAccountSummary(id, "All", tags)
+        accountSummaryReqids.add(id)
+    }
+
+    /**
+     * Cancel all open account summary subscriptions.
+     */
+    fun cancelAccountSummary() {
+        for (id in accountSummaryReqids)
+            client.cancelAccountSummary(id)
+
+        accountSummaryReqids.clear()
+    }
+
+    /**
+     * Subscribe to position size for all accounts.
+     */
+    fun subscribePositions() {
+        client.reqPositions()
+    }
+
+    /**
+     * Cancel position size subscription for all accounts.
+     */
+    fun cancelPositions() {
+        client.cancelPositions()
+    }
+
+    /**
+     * Subscribe to market data for each position in a [Portfolio].
+     *
+     * @param portfolio The [Portfolio] to request market data for.
+     */
+    fun subscribeMarketData(portfolio: Portfolio) {
+        portfolio.tickers.forEach { subscribeMarketData(it) }
+    }
+
+    /**
+     * Subscribe to market data for a specific [StockTicker].
+     *
+     * @param ticker The [StockTicker] to request market data for.
+     */
+    fun subscribeMarketData(ticker: StockTicker) {
+        val id = reqid
+        reqid++
+        reqidToStockTicker[id] = ticker
+        client.reqMarketDataType(3) //3=delayed, 4=delayed-frozen; 1, 2 require live data subscription
+        //I dont know what the later 4 arguments do...
+        client.reqMktData(id, ticker.createContract(), "", false, false, listOf())
+    }
+
+    /**
+     * Submit an order.
+     *
+     * @param account The [Account] to submit an order for.
+     * @param orderKind The kind of order to submit.
+     * @param ticker The [StockTicker] of the stock to submit an order for.
+     * @param quantity How many units of [ticker] to submit an order for.
+     * @return The ID associated with the newly submitted order.
+     */
+    fun submitOrder(account: Account, orderKind: OrderKind, ticker: StockTicker, quantity: Long): Int {
+        nextOrderId++
+        client.placeOrder(nextOrderId, ticker.createContract(), orderKind.createOrder(account, quantity))
+        return nextOrderId
+    }
+
+    //#region Incoming message handling
     override fun orderStatus(
         orderId: Int,
         status: String,
@@ -95,72 +227,5 @@ object TwsCommManager : EWrapperBase() {
         println(id)
         messageQueue.add(ErrorMessage(errorCode, errorMsg))
     }
-
-    fun beginMessageReader(ip: String = "127.0.0.1", port: Int = 4001, clientId: Int = 2): Thread {
-        client.eConnect(ip, port, clientId)
-
-        val reader = EReader(client, signal)
-        reader.start()
-
-        return thread {
-            while (client.isConnected) {
-                signal.waitForSignal()
-                try {
-                    reader.processMsgs()
-                } catch (e: Exception) {
-                    println("Exception ${e.message}")
-                }
-            }
-        }
-    }
-
-    fun requestNextOrderId() {
-        client.reqIds(-1)
-    }
-
-    fun disconnect() {
-        client.eDisconnect()
-    }
-
-    fun requestAccountSummary(first: AccountSummaryTag, vararg rest: AccountSummaryTag) {
-        val id = reqid
-        reqid++
-        val tags = rest.fold(first.toString()) { l, r -> "$l,$r" }
-        client.reqAccountSummary(id, "All", tags)
-        accountSummaryReqids.add(id)
-    }
-
-    fun cancelAccountSummary() {
-        for (id in accountSummaryReqids)
-            client.cancelAccountSummary(id)
-
-        accountSummaryReqids.clear()
-    }
-
-    fun requestPositions() {
-        client.reqPositions()
-    }
-
-    fun cancelPositions() {
-        client.cancelPositions()
-    }
-
-    fun requestMarketData(portfolio: Portfolio) {
-        portfolio.tickers.forEach { requestMarketData(it) }
-    }
-
-    fun requestMarketData(ticker: StockTicker) {
-        val id = reqid
-        reqid++
-        reqidToStockTicker[id] = ticker
-        client.reqMarketDataType(3) //3=delayed, 4=delayed-frozen; 1, 2 require live data subscription
-        //I dont know what the later 4 arguments do...
-        client.reqMktData(id, ticker.createContract(), "", false, false, listOf())
-    }
-
-    fun submitOrder(account: Account, orderKind: OrderKind, ticker: StockTicker, quantity: Long): Int {
-        nextOrderId++
-        client.placeOrder(nextOrderId, ticker.createContract(), orderKind.createOrder(account, quantity))
-        return nextOrderId
-    }
+    //#endregion
 }
