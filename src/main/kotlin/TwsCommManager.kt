@@ -170,18 +170,17 @@ object TwsCommManager : EWrapperBase() {
     override fun tickPrice(tickerId: Int, tickType: Int, price: Double, attribs: TickAttrib) {
         try {
             val ticker = reqidToStockTicker[tickerId]
+
+            if(ticker == null) println("TickerId $tickerId not registered. Ignoring message")
+
             //tick type 68 = Delayed last traded price
             //75 = The prior day's closing price
             //76 = Today's opening price
             //if price is stale when requested, 68 reports 0 for price
-            if(tickType == 68)
-                if(ticker != null) messageQueue.add(StockPriceMessage(ticker, price))
-                else println("TickerId $tickerId not registered. Ignoring message")
+            else if(tickType == 68) messageQueue.add(StockPriceMessage(ticker, price))
 
             //used as a fallback if 68 returns 0
-            else if(tickType == 76)
-                if(ticker != null) messageQueue.add(StockOpenMessage(ticker, price))
-                else println("TickerId $tickerId not registered. Ignoring message")
+            else if(tickType == 76) messageQueue.add(StockOpenMessage(ticker, price))
         } catch (e: Exception) {
             println("Error: ${e.message}")
         }
@@ -192,10 +191,9 @@ object TwsCommManager : EWrapperBase() {
             val theAccount = Account[account]
             val stockTicker = StockTicker[contract.symbol()]
 
-            if(theAccount != null)
-                if(stockTicker != null) messageQueue.add(StockQuantityMessage(theAccount, stockTicker, pos.longValue().toDouble()))
-                else println("Ticker ${contract.symbol()} not registered. Ignoring message")
-            else println("Account $account not registered. Ignoring message")
+            if(theAccount == null) println("Account $account not registered. Ignoring message")
+            else if(stockTicker == null) println("Ticker ${contract.symbol()} not registered. Ignoring message")
+            else messageQueue.add(StockQuantityMessage(theAccount, stockTicker, pos.longValue().toDouble()))
         } catch (e: Exception) {
             println("Error: ${e.message}")
         }
@@ -209,10 +207,9 @@ object TwsCommManager : EWrapperBase() {
             val theAccount = Account[account]
             val accountTag = AccountSummaryTag[tag]
 
-            if(theAccount != null)
-                if(accountTag != null) messageQueue.add(AccountSummaryMessage(accountTag, theAccount, value.toDouble()))
-                else println("Tag $tag not registered. Ignoring message")
-            else println("Account $account not registered. Ignoring message")
+            if(theAccount == null) println("Account $account not registered. Ignoring message")
+            else if(accountTag == null) println("Tag $tag not registered. Ignoring message")
+            else messageQueue.add(AccountSummaryMessage(accountTag, theAccount, value.toDouble()))
         } catch (e: Exception) {
             println("Error: ${e.message}")
         }

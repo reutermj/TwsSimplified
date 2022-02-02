@@ -26,7 +26,7 @@ object PriceLookup {
      * @return Whether all price information is available for [portfolio]
      */
     fun isPortfolioInitialized(portfolio: Portfolio): Boolean =
-        portfolio.tickers.fold(true) {l, r -> l && (getPrice(r) != 0.0) }
+        portfolio.tickers.fold(true) {accum, ticker -> accum && getPrice(ticker) != 0.0 }
 
     /**
      * Sets the open price of a [StockTicker].

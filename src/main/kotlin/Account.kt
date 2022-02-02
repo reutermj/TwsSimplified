@@ -60,4 +60,7 @@ class Account private constructor(val accountId: String) {
     val isInitialized: Boolean
         get() = isNetInitialized && isGrossInitialized &&
                 isMaintInitialized
+
+    fun isPortfolioInitialized(portfolio: Portfolio): Boolean =
+        portfolio.tickers.fold(true) { accum, ticker -> accum && positionSize[ticker] != null }
 }

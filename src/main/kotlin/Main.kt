@@ -49,7 +49,8 @@ fun main() {
         }
 
         //make sure everything is initialized, leverage ratio is below the floor, and there are no open orders
-        if(margin.isInitialized && PriceLookup.isPortfolioInitialized(portfolio) &&
+        if(margin.isInitialized && margin.isPortfolioInitialized(portfolio) &&
+            PriceLookup.isPortfolioInitialized(portfolio) &&
             margin.leverage < 1.5 && !isOrderOpen) {
             //this is a simple trick to get the position that is most underweight relative to its target weight
             val sorted = portfolio.tickers.sortedBy { (margin.getPositionSize(it) * PriceLookup.getPrice(it)) / portfolio.getWeight(it) }
