@@ -1,3 +1,5 @@
+package twscomms
+
 /**
  * Used to store and lookup price information for [StockTicker] instances.
  */

@@ -1,3 +1,5 @@
+package twscomms
+
 import com.ib.client.*
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ConcurrentHashMap
@@ -80,7 +82,7 @@ object TwsCommManager : EWrapperBase() {
     fun subscribeAccountSummary(first: AccountSummaryTag, vararg rest: AccountSummaryTag) {
         val id = reqid
         reqid++
-        val tags = rest.fold(first.toString()) { l, r -> "$l,$r" }
+        val tags = rest.fold(first.toString()) { acc, tag -> "$acc,$tag" }
         client.reqAccountSummary(id, "All", tags)
         accountSummaryReqids.add(id)
     }

@@ -1,3 +1,5 @@
+package twscomms
+
 class AccountSummaryTag private constructor (private val tagString: String) {
     companion object {
         private val lookup = mutableMapOf<String, AccountSummaryTag>()
