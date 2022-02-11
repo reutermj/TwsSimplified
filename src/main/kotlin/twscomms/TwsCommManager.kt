@@ -1,6 +1,7 @@
 package twscomms
 
 import com.ib.client.*
+import jdk.jshell.spi.ExecutionControlProvider
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
@@ -39,6 +40,8 @@ object TwsCommManager : EWrapperBase() {
     //The reqids of open account summary subscriptions.
     private val accountSummaryReqids = mutableListOf<Int>()
 
+    private var readerThread: Thread? = null
+
     /**
      * Connect to the TWS.
      *
@@ -46,15 +49,17 @@ object TwsCommManager : EWrapperBase() {
      * @param port The port TWS is listening to.
      * Default ports: TWS live 7496, TWS paper 7497, IBGateway live 4001, IBGateway paper 4002.
      * @param clientId Identifies the client connection.
-     * @return The [Thread] that the message reader is running on.
+     * @throws Exception Throws when the reader has already started
      */
-    fun beginMessageReader(ip: String = "127.0.0.1", port: Int = 4001, clientId: Int = 2): Thread {
+    fun beginMessageReader(ip: String = "127.0.0.1", port: Int = 4001, clientId: Int = 2) {
+        if(readerThread != null) throw Exception("Reader already started")
+
         client.eConnect(ip, port, clientId)
 
         val reader = EReader(client, signal)
         reader.start()
 
-        return thread {
+        readerThread = thread {
             while (client.isConnected) {
                 signal.waitForSignal()
                 try {
@@ -71,6 +76,8 @@ object TwsCommManager : EWrapperBase() {
      */
     fun disconnect() {
         client.eDisconnect()
+        readerThread?.join()
+        readerThread = null
     }
 
     /**
@@ -169,7 +176,7 @@ object TwsCommManager : EWrapperBase() {
         }
     }
 
-    override fun tickPrice(tickerId: Int, tickType: Int, price: Double, attribs: TickAttrib) {
+    override fun tickPrice(tickerId: Int, field: Int, price: Double, attribs: TickAttrib) {
         try {
             val ticker = reqidToStockTicker[tickerId]
 
@@ -179,10 +186,10 @@ object TwsCommManager : EWrapperBase() {
             //75 = The prior day's closing price
             //76 = Today's opening price
             //if price is stale when requested, 68 reports 0 for price
-            else if(tickType == 68) messageQueue.add(StockPriceMessage(ticker, price))
+            else if(field == 68) messageQueue.add(StockPriceMessage(ticker, price))
 
             //used as a fallback if 68 returns 0
-            else if(tickType == 76) messageQueue.add(StockOpenMessage(ticker, price))
+            else if(field == 76) messageQueue.add(StockOpenMessage(ticker, price))
         } catch (e: Exception) {
             println("Error: ${e.message}")
         }

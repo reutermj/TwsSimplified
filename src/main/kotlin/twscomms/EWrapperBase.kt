@@ -216,7 +216,7 @@ abstract class EWrapperBase : EWrapper {
         println("Unimplemented API call: commissionReport")
     }
 
-    override fun position(account: String, contract: Contract, p2: Decimal, pos: Double) {
+    override fun position(account: String, contract: Contract, pos: Decimal, avgCost: Double) {
         println("Unimplemented API call: position")
     }
 
