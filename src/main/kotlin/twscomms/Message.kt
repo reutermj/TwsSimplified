@@ -1,6 +1,8 @@
 package twscomms
 
-sealed class Message
+internal sealed class Message {
+    abstract fun process()
+}
 
 /**
  * Contains account information related to a requested [AccountSummaryTag].
@@ -9,7 +11,31 @@ sealed class Message
  * @param account The account associated with this message.
  * @param value The account's attribute's value.
  */
-data class AccountSummaryMessage(val tag: AccountSummaryTag, val account: Account, val value: Double) : Message()
+internal data class AccountSummaryMessage(val tag: String, val account: String, val value: Double) : Message() {
+    override fun process() {
+        val theAccount = Account[this.account]
+        val theTag = AccountSummaryTag[this.tag]
+
+        if(theAccount == null) {
+            println("Account $account not registered. Ignoring message")
+            return //todo should I return something that tells the loop to continue?
+        }
+
+        if(theTag == null) {
+            println("Account Summary Tag $tag not registered. This probably shouldn't happen, but ignoring the message")
+            return
+        }
+
+        theAccount.setAccountSummary(theTag, value)
+    }
+}
+
+/**
+ * Notifies when account summary request is processed.
+ */
+internal object AccountSummaryEnd : Message() {
+    override fun process() { }
+}
 
 /**
  * Contains position size information.
@@ -18,30 +44,82 @@ data class AccountSummaryMessage(val tag: AccountSummaryTag, val account: Accoun
  * @param ticker The associated ticker.
  * @param quantity The account's attribute's value.
  */
-data class StockQuantityMessage(val account: Account, val ticker: StockTicker, val quantity: Double) : Message()
+internal data class StockQuantityMessage(val account: String, val ticker: String, val exchange: String, val currency: String, val quantity: Double) : Message() {
+    override fun process() {
+        val theAccount = Account[account]
+        val stockTicker =
+            StockTicker.getStockTicker(ticker) ?:
+            StockTicker.register(ticker, exchange, currency)
+
+        if(theAccount == null) {
+            println("Account $account not registered. Ignoring message")
+            return
+        }
+
+        theAccount.setPositionSize(stockTicker, quantity)
+    }
+}
 
 /**
  * Contains last price information for a ticker.
  *
- * @param ticker The associated ticker.
+ * @param tickerId The associated tickerId.
  * @param price The last price of the ticker.
  */
-data class StockPriceMessage(val ticker: StockTicker, val price: Double) : Message()
+internal data class StockPriceMessage(val tickerId: Int, val price: Double) : Message() {
+    override fun process() {
+        val ticker = TwsCommManager.reqidToStockTicker[tickerId]
+
+        if(ticker == null) {
+            println("ReqId ${tickerId} does not correspond to a registered request. This probably shouldn't happen, but ignoring message")
+            return
+        }
+
+        PriceLookup.setLastPrice(ticker, price)
+    }
+}
 
 /**
  * Contains open price information for a ticker.
  *
- * @param ticker The associated ticker.
+ * @param tickerId The associated tickerId.
  * @param price The open price of the ticker.
  */
-data class StockOpenMessage(val ticker: StockTicker, val price: Double) : Message()
+internal data class StockOpenMessage(val tickerId: Int, val price: Double) : Message() {
+    override fun process() {
+        val ticker = TwsCommManager.reqidToStockTicker[tickerId]
+
+        if(ticker == null) {
+            println("ReqId ${tickerId} does not correspond to a registered request. This probably shouldn't happen, but ignoring message")
+            return
+        }
+
+        PriceLookup.setOpenPrice(ticker, price)
+    }
+}
+
+/**
+ * Called when all positions have been processed
+ */
+internal object PositionEnd : Message() {
+    override fun process() { }
+}
 
 /**
  * Identifies that an order has been filled.
  *
  * @param orderId The order that has been filled.
  */
-data class OrderFilledMessage(val orderId: Int) : Message()
+internal data class OrderFilledMessage(val orderId: Int) : Message() {
+    override fun process() {
+        TwsCommManager.awaitingPositions = true
+        TwsCommManager.awaitingAccountSummary = true
+        TwsCommManager.cancelPositions()
+        TwsCommManager.subscribePositions()
+        TwsCommManager.cancelAccountSummary()
+        TwsCommManager.subscribeAccountSummary()
+    }
+}
 
 /**
  * Contains information related to an error reported by TWS.
@@ -49,4 +127,6 @@ data class OrderFilledMessage(val orderId: Int) : Message()
  * @param code The error code.
  * @param message The error message.
  */
-data class ErrorMessage(val code: Int, val message: String) : Message()
+internal data class ErrorMessage(val code: Int, val message: String) : Message() {
+    override fun process() { }
+}

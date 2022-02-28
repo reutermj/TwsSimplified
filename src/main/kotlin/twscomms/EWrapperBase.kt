@@ -6,8 +6,8 @@ import com.ib.client.*
  * Provides a default implementation for all EWrapper receiver functions.
  */
 abstract class EWrapperBase : EWrapper {
-    protected abstract val signal: EReaderSignal
-    protected abstract val client: EClientSocket
+    internal abstract val signal: EReaderSignal
+    internal abstract val client: EClientSocket
 
     override fun tickPrice(tickerId: Int, field: Int, price: Double, attribs: TickAttrib) {
         println("Unimplemented API call: tickPrice")

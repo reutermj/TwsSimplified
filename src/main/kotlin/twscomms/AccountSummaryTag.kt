@@ -11,6 +11,8 @@ class AccountSummaryTag private constructor (private val tagString: String) {
         }
 
         operator fun get(tagString: String) = lookup[tagString.lowercase()]
+
+        fun getAllTags() = lookup.values.fold("") { acc, tag -> "$acc,$tag" }.substring(1)
     }
 
     override fun toString() = tagString

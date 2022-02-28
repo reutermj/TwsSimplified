@@ -5,14 +5,26 @@ import com.ib.client.Contract
 class StockTicker private constructor(private val tickerString: String, private val primaryExchange: String, private val currency: String) {
     companion object {
         private val lookup = mutableMapOf<String, StockTicker>()
+        private val unregisteredTickers = mutableListOf<StockTicker>()
 
-        fun register(tickerString: String, primaryExchange: String, currency: String): StockTicker {
-            val ticker = StockTicker(tickerString, primaryExchange, currency)
-            lookup[tickerString.lowercase()] = ticker
-            return ticker
+        fun register(tickerString: String, primaryExchange: String, currency: String) =
+            lookup[tickerString.lowercase()] ?: run {
+                val ticker = StockTicker(tickerString, primaryExchange, currency)
+                lookup[tickerString.lowercase()] = ticker
+                unregisteredTickers.add(ticker)
+                ticker
+            }
+
+        fun getRegisteredTickers(): List<StockTicker> =
+            lookup.values.toList()
+
+        fun getStockTicker(tickerString: String) = lookup[tickerString.lowercase()]
+
+        fun getUnregisteredTickers(): List<StockTicker> {
+            val tickers = unregisteredTickers.toList()
+            unregisteredTickers.clear()
+            return tickers
         }
-
-        operator fun get(tickerString: String) = lookup[tickerString.lowercase()]
     }
 
     fun createContract(): Contract {
@@ -27,9 +39,3 @@ class StockTicker private constructor(private val tickerString: String, private 
 
     override fun toString() = tickerString
 }
-
-val AVLV = StockTicker.register("AVLV", "ARCA", "USD")
-val AVUV = StockTicker.register("AVUV", "ARCA", "USD")
-val AVIV = StockTicker.register("AVIV", "ARCA", "USD")
-val AVDV = StockTicker.register("AVDV", "ARCA", "USD")
-val AVES = StockTicker.register("AVES", "ARCA", "USD")

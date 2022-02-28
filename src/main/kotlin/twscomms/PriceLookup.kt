@@ -22,13 +22,13 @@ object PriceLookup {
     }
 
     /**
-     * Used to determine if price information is available for all positions in a [Portfolio].
+     * Used to determine if price information is available for all given positions.
      *
-     * @param portfolio The [Portfolio].
-     * @return Whether all price information is available for [portfolio]
+     * @param positions The list of [StockTicker]
+     * @return Whether all price information is available for [positions]
      */
-    fun isPortfolioInitialized(portfolio: Portfolio): Boolean =
-        portfolio.tickers.fold(true) {accum, ticker -> accum && getPrice(ticker) != 0.0 }
+    fun arePositionsInitialized(positions: List<StockTicker>): Boolean =
+        positions.fold(true) {acc, ticker -> acc && getPrice(ticker) != 0.0 }
 
     /**
      * Sets the open price of a [StockTicker].
