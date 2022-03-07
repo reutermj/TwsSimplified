@@ -1,5 +1,9 @@
 package twscomms
 
+import com.ib.client.Contract
+import com.ib.client.Order
+import com.ib.client.OrderState
+
 internal sealed class Message {
     abstract fun process()
 }
@@ -13,8 +17,8 @@ internal sealed class Message {
  */
 internal data class AccountSummaryMessage(val tag: String, val account: String, val value: Double) : Message() {
     override fun process() {
-        val theAccount = Account[this.account]
-        val theTag = AccountSummaryTag[this.tag]
+        val theAccount = Account.getAccount(this.account)
+        val theTag = AccountSummaryTag.getTag(this.tag)
 
         if(theAccount == null) {
             println("Account $account not registered. Ignoring message")
@@ -46,9 +50,9 @@ internal object AccountSummaryEnd : Message() {
  */
 internal data class StockQuantityMessage(val account: String, val ticker: String, val exchange: String, val currency: String, val quantity: Double) : Message() {
     override fun process() {
-        val theAccount = Account[account]
+        val theAccount = Account.getAccount(account)
         val stockTicker =
-            StockTicker.getStockTicker(ticker) ?:
+            StockTicker.getTicker(ticker) ?:
             StockTicker.register(ticker, exchange, currency)
 
         if(theAccount == null) {
@@ -110,7 +114,7 @@ internal object PositionEnd : Message() {
  *
  * @param orderId The order that has been filled.
  */
-internal data class OrderFilledMessage(val orderId: Int) : Message() {
+internal data class OrderStatusMessage(val orderId: Int, val filled: Long, val remaining: Long) : Message() {
     override fun process() {
         TwsCommManager.awaitingPositions = true
         TwsCommManager.awaitingAccountSummary = true
@@ -118,6 +122,27 @@ internal data class OrderFilledMessage(val orderId: Int) : Message() {
         TwsCommManager.subscribePositions()
         TwsCommManager.cancelAccountSummary()
         TwsCommManager.subscribeAccountSummary()
+    }
+}
+
+internal data class OpenOrderMessage(val orderId: Int, val contract: Contract, val order: Order, val state: OrderState) : Message() {
+    override fun process() {
+        val account = Account.getAccount(order.account())
+        if(account == null) {
+            println("Account $account not registered. Ignoring message")
+            return
+        }
+
+        if(!TwsCommManager.reqidToAccount.contains(orderId))
+            TwsCommManager.reqidToAccount[orderId] = account
+
+        if(!account.openOrders.contains(orderId)) {
+            val ticker = TwsCommManager.reqidToStockTicker[orderId]
+
+            if(ticker != null)
+                account.openOrders[orderId] = OrderWrapper(orderId, ticker, -1, -1, contract, order)
+            else println("ReqId ${orderId} does not correspond to a registered request. This probably shouldn't happen, but ignoring message")
+        }
     }
 }
 

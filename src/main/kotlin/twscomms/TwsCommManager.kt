@@ -48,6 +48,8 @@ object TwsCommManager {
     internal var awaitingAccountSummary = true
     internal var awaitingPositions = true
 
+    internal val reqidToAccount = mutableMapOf<Int, Account>()
+
     /**
      * Connect to the TWS.
      *
@@ -95,7 +97,9 @@ object TwsCommManager {
             val unregisteredTickers = StockTicker.getUnregisteredTickers()
             for(ticker in unregisteredTickers)
                 subscribeMarketData(ticker)
-        } while(awaitingPositions || awaitingAccountSummary || !PriceLookup.arePositionsInitialized(StockTicker.getRegisteredTickers()))
+        } while(awaitingPositions || awaitingAccountSummary ||
+                PriceLookup.anyUnitializedPositions(StockTicker.getRegisteredTickers()) ||
+                Account.anyUninitaziledOrders())
     }
 
     /**
@@ -116,7 +120,7 @@ object TwsCommManager {
      * @param quantity How many units of [ticker] to submit an order for.
      * @return The ID associated with the newly submitted order.
      */
-    fun submitOrder(account: Account, orderKind: OrderKind, ticker: StockTicker, quantity: Long): Int {
+    internal fun submitOrder(account: Account, orderKind: OrderKind, ticker: StockTicker, quantity: Long): Int {
         nextOrderId++
         client.placeOrder(nextOrderId, ticker.createContract(), orderKind.createOrder(account, quantity))
         return nextOrderId
@@ -165,7 +169,6 @@ object TwsCommManager {
         tickers.forEach { subscribeMarketData(it) }
     }
 
-
     /**
      * Subscribe to market data for a specific [StockTicker].
      *
@@ -180,17 +183,15 @@ object TwsCommManager {
         client.reqMktData(id, ticker.createContract(), "", false, false, listOf())
     }
 
+    //From a design perspective, the methods of this object are called on the message reader
+    //thread. To avoid concurrency issues, these methods are simply used to pass information
+    //to the application thread. No "real" data processing should be handled here. Instead,
+    //all information required to processing the data should be passed using message and
+    //handled on the application thread.
     private object TwsMessageReceiver : EWrapperBase() {
         override val signal = EJavaSignal()
         override val client = EClientSocket(this, signal)
 
-        //From a design perspective, these methods are called on the message reader thread.
-        //To avoid concurrency issues, these methods are simply used to pass information to
-        //the application thread. No "real" data processing should be handled here. Instead,
-        //all information required to processing the data should be passed using message and
-        //handled on the application thread.
-
-        private val isOrderedFilled = mutableMapOf<Int, Boolean>()
         override fun orderStatus(
             orderId: Int,
             status: String,
@@ -204,17 +205,14 @@ object TwsCommManager {
             whyHeld: String?,
             mktCapPrice: Double
         ) {
-            if(isOrderedFilled[orderId] != true && remaining.isZero) {
-                isOrderedFilled[orderId] = true
-                messageQueue.add(OrderFilledMessage(orderId))
-            }
+            messageQueue.add(OrderStatusMessage(orderId, if(filled.isZero) 0 else filled.longValue(), if(remaining.isZero) 0 else remaining.longValue()))
         }
 
         override fun openOrder(
             orderId: Int, contract: Contract, order: Order,
             orderState: OrderState
         ) {
-            val ticker = StockTicker.getStockTicker(contract.symbol())
+            messageQueue.add(OpenOrderMessage(orderId, contract, order, orderState))
         }
 
         override fun tickPrice(tickerId: Int, field: Int, price: Double, attribs: TickAttrib) {
@@ -258,6 +256,4 @@ object TwsCommManager {
             messageQueue.add(ErrorMessage(errorCode, errorMsg))
         }
     }
-
-
 }

@@ -32,24 +32,24 @@ fun main() {
         //quit running at 2pm EST. 2 hours before trading closes
         if(currentHour >= 13) break
 
-        if(margin.leverage < 1.5) {
+        if(margin.getOpenOrders().any()) continue
+
+        if(margin.leverageRatio < 1.5) {
             //this is a simple trick to get the position that is most underweight relative to its target weight
-            val sorted = portfolio.keys.sortedBy { (margin.getPositionSize(it) * PriceLookup.getPrice(it)) / (portfolio[it] ?: 0.0) }
+            val sorted = portfolio.keys.sortedBy { margin.getMarketValue(it) / (portfolio[it] ?: 0.0) }
             val underweight = sorted.first()
             //target purchasing $2000 worth of shares rounded up to a whole share
             val quantity = ceil(2000.0 / PriceLookup.getPrice(underweight)).toLong()
-            TwsCommManager.submitOrder(margin, PatientBuyOrder, underweight, quantity)
-            //todo figure out how to lock up orders?
-            //todo probably list open orders in an account
+            margin.submitOrder(PatientBuyOrder, underweight, quantity)
         }
 
-        if(margin.leverage > 1.9) {
+        if(margin.leverageRatio > 1.9) {
             //this is a simple trick to get the position that is most overweight relative to its target weight
-            val sorted = portfolio.keys.sortedByDescending { (margin.getPositionSize(it) * PriceLookup.getPrice(it)) / (portfolio[it] ?: 0.0) }
-            val underweight = sorted.first()
-            //target purchasing $2000 worth of shares rounded up to a whole share
-            val quantity = ceil(2000.0 / PriceLookup.getPrice(underweight)).toLong()
-            TwsCommManager.submitOrder(margin, PatientSellOrder, underweight, quantity)
+            val sorted = portfolio.keys.sortedByDescending { margin.getMarketValue(it) / (portfolio[it] ?: 0.0) }
+            val overweight = sorted.first()
+            //target selling $2000 worth of shares rounded up to a whole share
+            val quantity = Math.max(ceil(2000.0 / PriceLookup.getPrice(overweight)), margin.getPositionSize(overweight)).toLong()
+            margin.submitOrder(PatientSellOrder, overweight, quantity)
         }
     }
 

@@ -18,7 +18,7 @@ class StockTicker private constructor(private val tickerString: String, private 
         fun getRegisteredTickers(): List<StockTicker> =
             lookup.values.toList()
 
-        fun getStockTicker(tickerString: String) = lookup[tickerString.lowercase()]
+        fun getTicker(tickerString: String) = lookup[tickerString.lowercase()]
 
         fun getUnregisteredTickers(): List<StockTicker> {
             val tickers = unregisteredTickers.toList()

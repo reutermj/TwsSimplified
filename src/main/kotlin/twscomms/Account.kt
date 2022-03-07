@@ -10,52 +10,60 @@ class Account private constructor(val accountId: String) {
             return account
         }
 
-        operator fun get(accountId: String) = lookup[accountId.lowercase()]
+        fun getAccount(accountId: String) = lookup[accountId.lowercase()]
+
+        internal fun anyUninitaziledOrders() =
+            lookup.values.fold(false) { acc, account -> acc || account.hasUninitializedOrders() }
     }
 
+    internal val openOrders = mutableMapOf<Int, OrderWrapper>()
     private val accountSummary = mutableMapOf<AccountSummaryTag, Double>()
     private val positionSize = mutableMapOf<StockTicker, Double>()
 
-    fun setAccountSummary(tag: AccountSummaryTag, value: Double) {
+    internal fun setAccountSummary(tag: AccountSummaryTag, value: Double) {
         accountSummary[tag] = value
     }
 
     fun getAccountSummary(tag: AccountSummaryTag) = accountSummary[tag] ?: 0.0
 
-    fun setPositionSize(ticker: StockTicker, size: Double) {
+    internal fun setPositionSize(ticker: StockTicker, size: Double) {
         positionSize[ticker] = size
     }
 
     fun getPositionSize(ticker: StockTicker) = positionSize[ticker] ?: 0.0
 
-    fun markAccountStale() {
-        positionSize.clear()
-        accountSummary.clear()
-    }
+    fun getMarketValue(ticker: StockTicker) =
+        getPositionSize(ticker) * PriceLookup.getPrice(ticker)
+
+    /**
+     * Submit an order.
+     *
+     * @param orderKind The kind of order to submit.
+     * @param ticker The [StockTicker] of the stock to submit an order for.
+     * @param quantity How many units of [ticker] to submit an order for.
+     * @return The ID associated with the newly submitted order.
+     */
+    fun submitOrder(orderKind: OrderKind, ticker: StockTicker, quantity: Long): Int =
+        TwsCommManager.submitOrder(this, orderKind, ticker, quantity)
+
+    fun getOpenOrders() =
+        openOrders.values.toList()
+
+    internal fun hasUninitializedOrders() =
+        openOrders.values.fold(false) { acc, order -> acc || order.isUninitialized }
 
     val maxSurvivableDrawdown: Double
-        get() =
-            if(isAccountSummaryInitialized(NetLiquidation, MaintMarginReq, GrossPositionValue)) {
-                val net = getAccountSummary(NetLiquidation)
-                val maint = getAccountSummary(MaintMarginReq)
-                val gross = getAccountSummary(GrossPositionValue)
-                (net - maint) / (gross - maint)
-            }
-            else 0.0
+        get() {
+            val net = getAccountSummary(NetLiquidation)
+            val maint = getAccountSummary(MaintMarginReq)
+            val gross = getAccountSummary(GrossPositionValue)
+            return (net - maint) / (gross - maint)
+        }
 
-    val leverage: Double
-        get() =
-            if(isAccountSummaryInitialized(NetLiquidation, GrossPositionValue)) {
-                val net = getAccountSummary(NetLiquidation)
-                val gross = getAccountSummary(GrossPositionValue)
-                gross / net
-            }
-            else 0.0
-
-    fun isAccountSummaryInitialized(first: AccountSummaryTag, vararg rest: AccountSummaryTag): Boolean =
-        rest.fold(accountSummary.contains(first)) { acc, tag -> acc && accountSummary.contains(tag) }
-
-
-    fun isPortfolioInitialized(portfolio: Portfolio): Boolean =
-        portfolio.tickers.fold(true) { acc, ticker -> acc && positionSize.contains(ticker) }
+    val leverageRatio: Double
+        get() {
+            val gross = getAccountSummary(GrossPositionValue)
+            val net = getAccountSummary(NetLiquidation)
+            return gross / net
+        }
 }

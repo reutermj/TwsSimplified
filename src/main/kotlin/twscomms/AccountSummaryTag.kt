@@ -1,7 +1,7 @@
 package twscomms
 
 class AccountSummaryTag private constructor (private val tagString: String) {
-    companion object {
+    internal companion object {
         private val lookup = mutableMapOf<String, AccountSummaryTag>()
 
         fun register(tagString: String): AccountSummaryTag {
@@ -10,7 +10,7 @@ class AccountSummaryTag private constructor (private val tagString: String) {
             return tag
         }
 
-        operator fun get(tagString: String) = lookup[tagString.lowercase()]
+        fun getTag(tagString: String) = lookup[tagString.lowercase()]
 
         fun getAllTags() = lookup.values.fold("") { acc, tag -> "$acc,$tag" }.substring(1)
     }
