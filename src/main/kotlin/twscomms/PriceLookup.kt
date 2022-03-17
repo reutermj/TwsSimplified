@@ -28,7 +28,7 @@ object PriceLookup {
      * @return Whether all price information is available for [positions]
      */
     internal fun anyUnitializedPositions(positions: List<StockTicker>): Boolean =
-        positions.fold(false) {acc, ticker -> acc || getPrice(ticker) != 0.0 }
+        positions.fold(false) {acc, ticker -> acc || lastPrice[ticker] == null || openPrice[ticker] == null }
 
     /**
      * Sets the open price of a [StockTicker].

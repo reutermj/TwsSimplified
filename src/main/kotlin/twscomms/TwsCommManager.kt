@@ -132,7 +132,8 @@ object TwsCommManager {
     internal fun subscribeAccountSummary() {
         val id = reqid
         reqid++
-        client.reqAccountSummary(id, "All", AccountSummaryTag.getAllTags())
+        val s = AccountSummaryTag.getAllTags()
+        client.reqAccountSummary(id, "All", s)
         accountSummaryReqids.add(id)
     }
 
@@ -216,18 +217,17 @@ object TwsCommManager {
         }
 
         override fun tickPrice(tickerId: Int, field: Int, price: Double, attribs: TickAttrib) {
-            //tick type 68 = Delayed last traded price
-            //75 = The prior day's closing price
-            //76 = Today's opening price
+            //tick type 4, 68 = last traded price
+            //14, 76 = opening price
             //if price is stale when requested, 68 reports 0 for price
-            if(field == 68) messageQueue.add(StockPriceMessage(tickerId, price))
+            if(field == 68 || field == 4) messageQueue.add(StockPriceMessage(tickerId, price))
 
             //used as a fallback if 68 returns 0
-            else if(field == 76) messageQueue.add(StockOpenMessage(tickerId, price))
+            else if(field == 76 || field == 14) messageQueue.add(StockOpenMessage(tickerId, price))
         }
 
         override fun position(account: String, contract: Contract, pos: Decimal, avgCost: Double) {
-            messageQueue.add(StockQuantityMessage(account, contract.symbol(), contract.primaryExch(), contract.currency(), pos.longValue().toDouble()))
+            messageQueue.add(StockQuantityMessage(account, contract.symbol(), contract.exchange(), contract.currency(), pos.longValue().toDouble()))
         }
 
         override fun positionEnd() {
@@ -239,7 +239,11 @@ object TwsCommManager {
             reqId: Int, account: String, tag: String,
             value: String, currency: String?
         ) {
-            messageQueue.add(AccountSummaryMessage(tag, account, value.toDouble()))
+            try {
+                messageQueue.add(AccountSummaryMessage(tag, account, value.toDouble()))
+            } catch (_: Exception) {
+
+            }
         }
 
         override fun accountSummaryEnd(reqId: Int) {

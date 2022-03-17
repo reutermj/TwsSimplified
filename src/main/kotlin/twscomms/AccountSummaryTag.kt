@@ -1,14 +1,37 @@
 package twscomms
 
-class AccountSummaryTag private constructor (private val tagString: String) {
+class AccountSummaryTag internal constructor (private val tagString: String) {
     internal companion object {
-        private val lookup = mutableMapOf<String, AccountSummaryTag>()
-
-        fun register(tagString: String): AccountSummaryTag {
-            val tag = AccountSummaryTag(tagString)
-            lookup[tagString.lowercase()] = tag
-            return tag
-        }
+        private val lookup = mapOf(
+            "AccountType".lowercase() to AccountType,
+            "NetLiquidation".lowercase() to NetLiquidation,
+            "TotalCashValue".lowercase() to TotalCashValue,
+            "SettledCash".lowercase() to SettledCash,
+            "AccruedCash".lowercase() to AccruedCash,
+            "BuyingPower".lowercase() to BuyingPower,
+            "EquityWithLoanValue".lowercase() to EquityWithLoanValue,
+            "PreviousEquityWithLoanValue".lowercase() to PreviousEquityWithLoanValue,
+            "GrossPositionValue".lowercase() to GrossPositionValue,
+            "RegTEquity".lowercase() to RegTEquity,
+            "RegTMargin".lowercase() to RegTMargin,
+            "SMA".lowercase() to SMA,
+            "InitMarginReq".lowercase() to InitMarginReq,
+            "MaintMarginReq".lowercase() to MaintMarginReq,
+            "AvailableFunds".lowercase() to AvailableFunds,
+            "ExcessLiquidity".lowercase() to ExcessLiquidity,
+            "Cushion".lowercase() to Cushion,
+            "FullInitMarginReq".lowercase() to FullInitMarginReq,
+            "FullMaintMarginReq".lowercase() to FullMaintMarginReq,
+            "FullAvailableFunds".lowercase() to FullAvailableFunds,
+            "FullExcessLiquidity".lowercase() to FullExcessLiquidity,
+            "LookAheadInitMarginReq".lowercase() to LookAheadInitMarginReq,
+            "LookAheadMaintMarginReq".lowercase() to LookAheadMaintMarginReq,
+            "LookAheadAvailableFunds".lowercase() to LookAheadAvailableFunds,
+            "LookAheadExcessLiquidity".lowercase() to LookAheadExcessLiquidity,
+            "HighestSeverity".lowercase() to HighestSeverity,
+            "DayTradesRemaining".lowercase() to DayTradesRemaining,
+            "Leverage".lowercase() to Leverage,
+        )
 
         fun getTag(tagString: String) = lookup[tagString.lowercase()]
 
@@ -18,31 +41,31 @@ class AccountSummaryTag private constructor (private val tagString: String) {
     override fun toString() = tagString
 }
 
-val AccountType = AccountSummaryTag.register("AccountType")
-val NetLiquidation = AccountSummaryTag.register("NetLiquidation")
-val TotalCashValue = AccountSummaryTag.register("TotalCashValue")
-val SettledCash = AccountSummaryTag.register("SettledCash")
-val AccruedCash = AccountSummaryTag.register("AccruedCash")
-val BuyingPower = AccountSummaryTag.register("BuyingPower")
-val EquityWithLoanValue = AccountSummaryTag.register("EquityWithLoanValue")
-val PreviousEquityWithLoanValue = AccountSummaryTag.register("PreviousEquityWithLoanValue")
-val GrossPositionValue = AccountSummaryTag.register("GrossPositionValue")
-val RegTEquity = AccountSummaryTag.register("RegTEquity")
-val RegTMargin = AccountSummaryTag.register("RegTMargin")
-val SMA = AccountSummaryTag.register("SMA")
-val InitMarginReq = AccountSummaryTag.register("InitMarginReq")
-val MaintMarginReq = AccountSummaryTag.register("MaintMarginReq")
-val AvailableFunds = AccountSummaryTag.register("AvailableFunds")
-val ExcessLiquidity = AccountSummaryTag.register("ExcessLiquidity")
-val Cushion = AccountSummaryTag.register("Cushion")
-val FullInitMarginReq = AccountSummaryTag.register("FullInitMarginReq")
-val FullMaintMarginReq = AccountSummaryTag.register("FullMaintMarginReq")
-val FullAvailableFunds = AccountSummaryTag.register("FullAvailableFunds")
-val FullExcessLiquidity = AccountSummaryTag.register("FullExcessLiquidity")
-val LookAheadInitMarginReq = AccountSummaryTag.register("LookAheadInitMarginReq")
-val LookAheadMaintMarginReq = AccountSummaryTag.register("LookAheadMaintMarginReq")
-val LookAheadAvailableFunds = AccountSummaryTag.register("LookAheadAvailableFunds")
-val LookAheadExcessLiquidity = AccountSummaryTag.register("LookAheadExcessLiquidity")
-val HighestSeverity = AccountSummaryTag.register("HighestSeverity")
-val DayTradesRemaining = AccountSummaryTag.register("DayTradesRemaining")
-val Leverage = AccountSummaryTag.register("Leverage")
+val AccountType = AccountSummaryTag("AccountType")
+val NetLiquidation = AccountSummaryTag("NetLiquidation")
+val TotalCashValue = AccountSummaryTag("TotalCashValue")
+val SettledCash = AccountSummaryTag("SettledCash")
+val AccruedCash = AccountSummaryTag("AccruedCash")
+val BuyingPower = AccountSummaryTag("BuyingPower")
+val EquityWithLoanValue = AccountSummaryTag("EquityWithLoanValue")
+val PreviousEquityWithLoanValue = AccountSummaryTag("PreviousEquityWithLoanValue")
+val GrossPositionValue = AccountSummaryTag("GrossPositionValue")
+val RegTEquity = AccountSummaryTag("RegTEquity")
+val RegTMargin = AccountSummaryTag("RegTMargin")
+val SMA = AccountSummaryTag("SMA")
+val InitMarginReq = AccountSummaryTag("InitMarginReq")
+val MaintMarginReq = AccountSummaryTag("MaintMarginReq")
+val AvailableFunds = AccountSummaryTag("AvailableFunds")
+val ExcessLiquidity = AccountSummaryTag("ExcessLiquidity")
+val Cushion = AccountSummaryTag("Cushion")
+val FullInitMarginReq = AccountSummaryTag("FullInitMarginReq")
+val FullMaintMarginReq = AccountSummaryTag("FullMaintMarginReq")
+val FullAvailableFunds = AccountSummaryTag("FullAvailableFunds")
+val FullExcessLiquidity = AccountSummaryTag("FullExcessLiquidity")
+val LookAheadInitMarginReq = AccountSummaryTag("LookAheadInitMarginReq")
+val LookAheadMaintMarginReq = AccountSummaryTag("LookAheadMaintMarginReq")
+val LookAheadAvailableFunds = AccountSummaryTag("LookAheadAvailableFunds")
+val LookAheadExcessLiquidity = AccountSummaryTag("LookAheadExcessLiquidity")
+val HighestSeverity = AccountSummaryTag("HighestSeverity")
+val DayTradesRemaining = AccountSummaryTag("DayTradesRemaining")
+val Leverage = AccountSummaryTag("Leverage")

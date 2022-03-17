@@ -19,9 +19,9 @@ fun main() {
         AVES to .2
     )
 
-    val margin = Account.register("DU#######")
+    val margin = Account.register("U")
 
-    TwsCommManager.start(port = 4002)
+    TwsCommManager.start()
 
     while (true) {
         TwsCommManager.waitForUpdate()

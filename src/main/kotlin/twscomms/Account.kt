@@ -61,9 +61,5 @@ class Account private constructor(val accountId: String) {
         }
 
     val leverageRatio: Double
-        get() {
-            val gross = getAccountSummary(GrossPositionValue)
-            val net = getAccountSummary(NetLiquidation)
-            return gross / net
-        }
+        get() = getAccountSummary(GrossPositionValue) / getAccountSummary(NetLiquidation)
 }
