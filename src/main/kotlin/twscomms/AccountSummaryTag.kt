@@ -30,7 +30,6 @@ class AccountSummaryTag internal constructor (private val tagString: String) {
             "LookAheadExcessLiquidity".lowercase() to LookAheadExcessLiquidity,
             "HighestSeverity".lowercase() to HighestSeverity,
             "DayTradesRemaining".lowercase() to DayTradesRemaining,
-            "Leverage".lowercase() to Leverage,
         )
 
         fun getTag(tagString: String) = lookup[tagString.lowercase()]
@@ -68,4 +67,3 @@ val LookAheadAvailableFunds = AccountSummaryTag("LookAheadAvailableFunds")
 val LookAheadExcessLiquidity = AccountSummaryTag("LookAheadExcessLiquidity")
 val HighestSeverity = AccountSummaryTag("HighestSeverity")
 val DayTradesRemaining = AccountSummaryTag("DayTradesRemaining")
-val Leverage = AccountSummaryTag("Leverage")

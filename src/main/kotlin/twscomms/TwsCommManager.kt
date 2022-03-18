@@ -45,8 +45,8 @@ object TwsCommManager {
 
     private var readerThread: Thread? = null
 
-    internal var awaitingAccountSummary = true
-    internal var awaitingPositions = true
+    internal var isAccountSummaryInitialized = false
+    internal var arePositionsInitialized = false
 
     internal val reqidToAccount = mutableMapOf<Int, Account>()
 
@@ -84,11 +84,15 @@ object TwsCommManager {
     }
 
     fun waitForUpdate() {
-        do {
-            when(val message = messageQueue.poll(20, TimeUnit.SECONDS)) {
-                null -> continue
-                AccountSummaryEnd -> awaitingAccountSummary = false
-                PositionEnd -> awaitingPositions = false
+        while(true) {
+            when(val message = messageQueue.poll(1, TimeUnit.SECONDS)) {
+                null ->
+                    if(arePositionsInitialized &&
+                        isAccountSummaryInitialized &&
+                        StockTicker.arePricesInitialized() &&
+                        Account.areOrdersInitialized()) break
+                AccountSummaryEnd -> isAccountSummaryInitialized = true
+                PositionEnd -> arePositionsInitialized = true
                 is ErrorMessage -> println(message.message)
                 else -> message.process()
             }
@@ -97,9 +101,7 @@ object TwsCommManager {
             val unregisteredTickers = StockTicker.getUnregisteredTickers()
             for(ticker in unregisteredTickers)
                 subscribeMarketData(ticker)
-        } while(awaitingPositions || awaitingAccountSummary ||
-                PriceLookup.anyUnitializedPositions(StockTicker.getRegisteredTickers()) ||
-                Account.anyUninitaziledOrders())
+        }
     }
 
     /**
@@ -220,10 +222,12 @@ object TwsCommManager {
             //tick type 4, 68 = last traded price
             //14, 76 = opening price
             //if price is stale when requested, 68 reports 0 for price
-            if(field == 68 || field == 4) messageQueue.add(StockPriceMessage(tickerId, price))
-
-            //used as a fallback if 68 returns 0
-            else if(field == 76 || field == 14) messageQueue.add(StockOpenMessage(tickerId, price))
+            when(field) {
+                4, 68 -> messageQueue.add(StockPriceMessage(tickerId, price))
+                14, 76 -> messageQueue.add(StockOpenMessage(tickerId, price))
+                1, 66 -> messageQueue.add(StockBidMessage(tickerId, price))
+                2, 67 -> messageQueue.add(StockAskMessage(tickerId, price))
+            }
         }
 
         override fun position(account: String, contract: Contract, pos: Decimal, avgCost: Double) {

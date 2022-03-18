@@ -15,6 +15,6 @@ class OrderWrapper internal constructor  (val orderId: Int, val ticker: StockTic
             _remaining = value
         }
 
-    internal  val isUninitialized: Boolean
-        get() = _filled == -1 || _remaining == -1
+    internal val isInitialized: Boolean
+        get() = _filled != -1 && _remaining != -1
 }

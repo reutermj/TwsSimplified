@@ -15,8 +15,8 @@ class StockTicker private constructor(private val tickerString: String, private 
                 ticker
             }
 
-        fun getRegisteredTickers(): List<StockTicker> =
-            lookup.values.toList()
+        fun arePricesInitialized() =
+            lookup.values.fold(true) { acc, ticker -> acc && ticker.arePricesInitialized() }
 
         fun getTicker(tickerString: String) = lookup[tickerString.lowercase()]
 
@@ -38,4 +38,20 @@ class StockTicker private constructor(private val tickerString: String, private 
     }
 
     override fun toString() = tickerString
+
+    internal var _bid: Double? = null
+    internal var _ask: Double? = null
+    internal var _price: Double? = null
+
+    private fun arePricesInitialized() =
+        _bid != null && _ask != null && _price != null
+
+    val bid: Double
+        get() = _bid!!
+
+    val ask: Double
+        get() = _ask!!
+
+    val price: Double
+        get() = _price!!
 }

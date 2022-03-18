@@ -12,8 +12,8 @@ class Account private constructor(val accountId: String) {
 
         fun getAccount(accountId: String) = lookup[accountId.lowercase()]
 
-        internal fun anyUninitaziledOrders() =
-            lookup.values.fold(false) { acc, account -> acc || account.hasUninitializedOrders() }
+        internal fun areOrdersInitialized() =
+            lookup.values.fold(true) { acc, account -> acc && account.areOrdersInitialized() }
     }
 
     internal val openOrders = mutableMapOf<Int, OrderWrapper>()
@@ -33,7 +33,7 @@ class Account private constructor(val accountId: String) {
     fun getPositionSize(ticker: StockTicker) = positionSize[ticker] ?: 0.0
 
     fun getMarketValue(ticker: StockTicker) =
-        getPositionSize(ticker) * PriceLookup.getPrice(ticker)
+        getPositionSize(ticker) * ticker.price
 
     /**
      * Submit an order.
@@ -49,8 +49,8 @@ class Account private constructor(val accountId: String) {
     fun getOpenOrders() =
         openOrders.values.toList()
 
-    internal fun hasUninitializedOrders() =
-        openOrders.values.fold(false) { acc, order -> acc || order.isUninitialized }
+    internal fun areOrdersInitialized() =
+        openOrders.values.fold(true) { acc, order -> acc && order.isInitialized }
 
     val maxSurvivableDrawdown: Double
         get() {

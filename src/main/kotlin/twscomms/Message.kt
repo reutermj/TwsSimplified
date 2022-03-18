@@ -79,7 +79,7 @@ internal data class StockPriceMessage(val tickerId: Int, val price: Double) : Me
             return
         }
 
-        PriceLookup.setLastPrice(ticker, price)
+        ticker._price = price
     }
 }
 
@@ -98,7 +98,33 @@ internal data class StockOpenMessage(val tickerId: Int, val price: Double) : Mes
             return
         }
 
-        PriceLookup.setOpenPrice(ticker, price)
+        if(ticker._price == null) ticker._price = price
+    }
+}
+
+internal data class StockBidMessage(val tickerId: Int, val price: Double) : Message() {
+    override fun process() {
+        val ticker = TwsCommManager.reqidToStockTicker[tickerId]
+
+        if(ticker == null) {
+            println("ReqId ${tickerId} does not correspond to a registered request. This probably shouldn't happen, but ignoring message")
+            return
+        }
+
+        ticker._bid = price
+    }
+}
+
+internal data class StockAskMessage(val tickerId: Int, val price: Double) : Message() {
+    override fun process() {
+        val ticker = TwsCommManager.reqidToStockTicker[tickerId]
+
+        if(ticker == null) {
+            println("ReqId ${tickerId} does not correspond to a registered request. This probably shouldn't happen, but ignoring message")
+            return
+        }
+
+        ticker._ask = price
     }
 }
 
@@ -116,8 +142,8 @@ internal object PositionEnd : Message() {
  */
 internal data class OrderStatusMessage(val orderId: Int, val filled: Long, val remaining: Long) : Message() {
     override fun process() {
-        TwsCommManager.awaitingPositions = true
-        TwsCommManager.awaitingAccountSummary = true
+        TwsCommManager.arePositionsInitialized = false
+        TwsCommManager.isAccountSummaryInitialized = false
         TwsCommManager.cancelPositions()
         TwsCommManager.subscribePositions()
         TwsCommManager.cancelAccountSummary()

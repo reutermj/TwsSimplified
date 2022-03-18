@@ -39,8 +39,8 @@ fun main() {
             val sorted = portfolio.keys.sortedBy { margin.getMarketValue(it) / (portfolio[it] ?: 0.0) }
             val underweight = sorted.first()
             //target purchasing $2000 worth of shares rounded up to a whole share
-            val quantity = ceil(2000.0 / PriceLookup.getPrice(underweight)).toLong()
-            margin.submitOrder(PatientBuyOrder, underweight, quantity)
+            val quantity = ceil(2000.0 / underweight.price).toLong()
+            //margin.submitOrder(PatientBuyOrder, underweight, quantity)
         }
 
         if(margin.leverageRatio > 1.9) {
@@ -48,8 +48,8 @@ fun main() {
             val sorted = portfolio.keys.sortedByDescending { margin.getMarketValue(it) / (portfolio[it] ?: 0.0) }
             val overweight = sorted.first()
             //target selling $2000 worth of shares rounded up to a whole share
-            val quantity = Math.max(ceil(2000.0 / PriceLookup.getPrice(overweight)), margin.getPositionSize(overweight)).toLong()
-            margin.submitOrder(PatientSellOrder, overweight, quantity)
+            val quantity = Math.max(ceil(2000.0 / overweight.price), margin.getPositionSize(overweight)).toLong()
+            //margin.submitOrder(PatientSellOrder, overweight, quantity)
         }
     }
 
