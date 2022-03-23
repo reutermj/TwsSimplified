@@ -1,39 +1,75 @@
 package twscomms
 
+/**
+ * Wraps functionality and data associated with account management.
+ */
 class Account private constructor(val accountId: String) {
     companion object {
+        /**
+         * Registers a new account or returns the account if already registered.
+         *
+         * @param accountId The id of the account.
+         * @return The newly registered account or previously registered account.
+         */
+        fun register(accountId: String) =
+            lookup[accountId.lowercase()] ?: run {
+                val account = Account(accountId)
+                lookup[accountId.lowercase()] = account
+                account
+            }
+
+        //region Internal Functionality
+
         private val lookup = mutableMapOf<String, Account>()
 
-        fun register(accountId: String): Account {
-            val account = Account(accountId)
-            lookup[accountId.lowercase()] = account
-            return account
-        }
-
-        fun getAccount(accountId: String) = lookup[accountId.lowercase()]
+        internal fun getAccount(accountId: String) = lookup[accountId.lowercase()]
 
         internal fun areOrdersInitialized() =
             lookup.values.fold(true) { acc, account -> acc && account.areOrdersInitialized() }
+
+        //endregion Internal Functionality
     }
 
-    internal val openOrders = mutableMapOf<Int, OrderWrapper>()
-    private val accountSummary = mutableMapOf<AccountSummaryTag, Double>()
-    private val positionSize = mutableMapOf<StockTicker, Double>()
+    /**
+     * Gets the list of all positions in the account.
+     *
+     * @return The list of positions.
+     */
+    fun getPositions() = positionSize.keys.toList()
 
-    internal fun setAccountSummary(tag: AccountSummaryTag, value: Double) {
-        accountSummary[tag] = value
-    }
+    /**
+     * Gets a specific account summary value.
+     *
+     * @param tag The account summary tag.
+     * @return The account summary value
+     */
+    fun getAccountSummary(tag: AccountSummaryTag) =
+        accountSummary[tag] ?: throwUninitialized(tag.toString())
 
-    fun getAccountSummary(tag: AccountSummaryTag) = accountSummary[tag] ?: 0.0
-
-    internal fun setPositionSize(ticker: StockTicker, size: Double) {
-        positionSize[ticker] = size
-    }
-
+    /**
+     * Gets the size of a position.
+     *
+     * @param ticker The position.
+     * @return The size of the position.
+     */
     fun getPositionSize(ticker: StockTicker) = positionSize[ticker] ?: 0.0
 
+    /**
+     * Gets the market value of a position.
+     *
+     * @param ticker The position.
+     * @return The market value of the position.
+     */
     fun getMarketValue(ticker: StockTicker) =
         getPositionSize(ticker) * ticker.price
+
+    /**
+     * Gets the list of all open orders in the account.
+     *
+     * @return The list of open orders.
+     */
+    fun getOpenOrders() =
+        openOrders.values.toList()
 
     /**
      * Submit an order.
@@ -46,13 +82,10 @@ class Account private constructor(val accountId: String) {
     fun submitOrder(orderKind: OrderKind, ticker: StockTicker, quantity: Long): Int =
         TwsCommManager.submitOrder(this, orderKind, ticker, quantity)
 
-    fun getOpenOrders() =
-        openOrders.values.toList()
-
-    internal fun areOrdersInitialized() =
-        openOrders.values.fold(true) { acc, order -> acc && order.isInitialized }
-
-    val maxSurvivableDrawdown: Double
+    /**
+     * Drawdown before a margin liquidation occurs.
+     */
+    val survivableDrawdown: Double
         get() {
             val net = getAccountSummary(NetLiquidation)
             val maint = getAccountSummary(MaintMarginReq)
@@ -60,6 +93,20 @@ class Account private constructor(val accountId: String) {
             return (net - maint) / (gross - maint)
         }
 
+    /**
+     * Leverage ratio as defined by Gross Position Value / Net Liquidation Value.
+     */
     val leverageRatio: Double
         get() = getAccountSummary(GrossPositionValue) / getAccountSummary(NetLiquidation)
+
+    //region Internal Functionality
+
+    internal val openOrders = mutableMapOf<Int, OrderWrapper>()
+    internal val accountSummary = mutableMapOf<AccountSummaryTag, Double>()
+    internal val positionSize = mutableMapOf<StockTicker, Double>()
+
+    internal fun areOrdersInitialized() =
+        openOrders.values.fold(true) { acc, order -> acc && order.isInitialized }
+
+    //endregion
 }

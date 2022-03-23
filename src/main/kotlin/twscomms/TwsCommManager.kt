@@ -7,18 +7,79 @@ import kotlin.concurrent.thread
 
 /**
  * Used to manage communication between TWS and application logic.
- *
- * Communication with TWS uses a two thread architecture. A thread started by [beginMessageReader] waits for TWS to
- * send messages, parses the message into a [Message] object, and communicates the [Message] object to the application
- * thread via [messageQueue]. Messages sent to TWS are sent on the application thread.
  */
 object TwsCommManager {
     /**
-     * Used to communicate parsed [Message] objects from the reader thread to the application thread.
+     * Connect to the TWS.
      *
-     * The message reader thread parses messages sent from TWS into [Message] objects, adds them to this queue, and
-     * then the application thread can read the messages from this queue.
+     * @param ip The IP address of the computer with TWS running
+     * @param port The port TWS is listening to.
+     * Default ports: TWS live 7496, TWS paper 7497, IBGateway live 4001, IBGateway paper 4002.
+     * @param clientId Identifies the client connection.
+     * @throws Exception Throws when the reader has already started
      */
+    fun connect(ip: String = "127.0.0.1", port: Int = 4001, clientId: Int = 2) {
+        if(readerThread != null) throw Exception("Reader already started")
+
+        client.eConnect(ip, port, clientId)
+
+        val reader = EReader(client, signal)
+        reader.start()
+
+        readerThread = thread {
+            while (client.isConnected) {
+                signal.waitForSignal()
+                try {
+                    reader.processMsgs()
+                } catch (e: Exception) {
+                    println("Exception ${e.message}")
+                }
+            }
+        }
+
+        subscribeAccountSummary()
+        subscribeMarketData(StockTicker.getUnregisteredTickers())
+        subscribePositions()
+    }
+
+    /**
+     * Waits until account and stock data is initialized and an update has occurred.
+     *
+     * @return An error or null if none
+     */
+    fun waitForUpdate(): TwsError? {
+        do {
+            when(val message = messageQueue.poll(20, TimeUnit.SECONDS)) {
+                null -> continue
+                AccountSummaryEnd -> isAccountSummaryInitialized = true
+                PositionEnd -> arePositionsInitialized = true
+                is ErrorMessage -> return TwsError(message.code, message.message)
+                else -> message.process()
+            }
+
+            //get all tickers that are newly registered and request market data for them
+            val unregisteredTickers = StockTicker.getUnregisteredTickers()
+            for(ticker in unregisteredTickers)
+                subscribeMarketData(ticker)
+        } while(arePositionsInitialized &&
+            isAccountSummaryInitialized &&
+            StockTicker.arePricesInitialized() &&
+            Account.areOrdersInitialized())
+
+        return null
+    }
+
+    /**
+     * Disconnect from the TWS.
+     */
+    fun disconnect() {
+        client.eDisconnect()
+        readerThread?.join()
+        readerThread = null
+    }
+
+    //region Internal Functionality
+
     //Design Goal: This should be the only place where concurrency is needed to be managed between the appplication
     //thread and the reader thread. Generally, the reader thread should only put information into a message object
     //and pass that message object onto the application thread for the data to be processed.
@@ -50,87 +111,12 @@ object TwsCommManager {
 
     internal val reqidToAccount = mutableMapOf<Int, Account>()
 
-    /**
-     * Connect to the TWS.
-     *
-     * @param ip The IP address of the computer with TWS running
-     * @param port The port TWS is listening to.
-     * Default ports: TWS live 7496, TWS paper 7497, IBGateway live 4001, IBGateway paper 4002.
-     * @param clientId Identifies the client connection.
-     * @throws Exception Throws when the reader has already started
-     */
-    fun start(ip: String = "127.0.0.1", port: Int = 4001, clientId: Int = 2) {
-        if(readerThread != null) throw Exception("Reader already started")
-
-        client.eConnect(ip, port, clientId)
-
-        val reader = EReader(client, signal)
-        reader.start()
-
-        readerThread = thread {
-            while (client.isConnected) {
-                signal.waitForSignal()
-                try {
-                    reader.processMsgs()
-                } catch (e: Exception) {
-                    println("Exception ${e.message}")
-                }
-            }
-        }
-
-        subscribeAccountSummary()
-        subscribeMarketData(StockTicker.getUnregisteredTickers())
-        subscribePositions()
-    }
-
-    fun waitForUpdate() {
-        while(true) {
-            when(val message = messageQueue.poll(1, TimeUnit.SECONDS)) {
-                null ->
-                    if(arePositionsInitialized &&
-                        isAccountSummaryInitialized &&
-                        StockTicker.arePricesInitialized() &&
-                        Account.areOrdersInitialized()) break
-                AccountSummaryEnd -> isAccountSummaryInitialized = true
-                PositionEnd -> arePositionsInitialized = true
-                is ErrorMessage -> println(message.message)
-                else -> message.process()
-            }
-
-            //get all tickers that are newly registered and request market data for them
-            val unregisteredTickers = StockTicker.getUnregisteredTickers()
-            for(ticker in unregisteredTickers)
-                subscribeMarketData(ticker)
-        }
-    }
-
-    /**
-     * Disconnect from the TWS.
-     */
-    fun disconnect() {
-        client.eDisconnect()
-        readerThread?.join()
-        readerThread = null
-    }
-
-    /**
-     * Submit an order.
-     *
-     * @param account The [Account] to submit an order for.
-     * @param orderKind The kind of order to submit.
-     * @param ticker The [StockTicker] of the stock to submit an order for.
-     * @param quantity How many units of [ticker] to submit an order for.
-     * @return The ID associated with the newly submitted order.
-     */
     internal fun submitOrder(account: Account, orderKind: OrderKind, ticker: StockTicker, quantity: Long): Int {
         nextOrderId++
         client.placeOrder(nextOrderId, ticker.createContract(), orderKind.createOrder(account, quantity))
         return nextOrderId
     }
 
-    /**
-     * Subscribes to all account summary information for all accounts.
-     */
     internal fun subscribeAccountSummary() {
         val id = reqid
         reqid++
@@ -139,9 +125,6 @@ object TwsCommManager {
         accountSummaryReqids.add(id)
     }
 
-    /**
-     * Cancel all open account summary subscriptions.
-     */
     internal fun cancelAccountSummary() {
         for (id in accountSummaryReqids)
             client.cancelAccountSummary(id)
@@ -149,34 +132,18 @@ object TwsCommManager {
         accountSummaryReqids.clear()
     }
 
-    /**
-     * Subscribe to position size for all accounts.
-     */
     internal fun subscribePositions() {
         client.reqPositions()
     }
 
-    /**
-     * Cancel position size subscription for all accounts.
-     */
     internal fun cancelPositions() {
         client.cancelPositions()
     }
 
-    /**
-     * Subscribe to market data for each [StockTicker] in a [List].
-     *
-     * @param portfolio The [List] of [StockTicker] to request market data for.
-     */
     private fun subscribeMarketData(tickers: List<StockTicker>) {
         tickers.forEach { subscribeMarketData(it) }
     }
 
-    /**
-     * Subscribe to market data for a specific [StockTicker].
-     *
-     * @param ticker The [StockTicker] to request market data for.
-     */
     private fun subscribeMarketData(ticker: StockTicker) {
         val id = reqid
         reqid++
@@ -185,6 +152,8 @@ object TwsCommManager {
         //I dont know what the later 4 arguments do...
         client.reqMktData(id, ticker.createContract(), "", false, false, listOf())
     }
+
+    //endregion Internal Functionality
 
     //From a design perspective, the methods of this object are called on the message reader
     //thread. To avoid concurrency issues, these methods are simply used to pass information

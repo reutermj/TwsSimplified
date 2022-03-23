@@ -30,7 +30,7 @@ internal data class AccountSummaryMessage(val tag: String, val account: String, 
             return
         }
 
-        theAccount.setAccountSummary(theTag, value)
+        theAccount.accountSummary[theTag] = value
     }
 }
 
@@ -60,7 +60,7 @@ internal data class StockQuantityMessage(val account: String, val ticker: String
             return
         }
 
-        theAccount.setPositionSize(stockTicker, quantity)
+        theAccount.positionSize[stockTicker] = quantity
     }
 }
 

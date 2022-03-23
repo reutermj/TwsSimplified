@@ -2,34 +2,75 @@ package twscomms
 
 import com.ib.client.Contract
 
-class StockTicker private constructor(private val tickerString: String, private val primaryExchange: String, private val currency: String) {
+/**
+ * Wraps functionality and data associated with a stock.
+ */
+class StockTicker private constructor(private val ticker: String, private val primaryExchange: String, private val currency: String) {
     companion object {
+        /**
+         * Registers a new stock ticker or returns the stock ticker if already registered.
+         *
+         * @param ticker The ticker.
+         * @param primaryExchange The primary exchange the stock trades on.
+         * @param currency The currency the stock is denominated in.
+         * @return The newly registered account or previously registered account.
+         */
+        fun register(ticker: String, primaryExchange: String, currency: String) =
+            lookup[ticker.lowercase()] ?: run {
+                val stock = StockTicker(ticker, primaryExchange, currency)
+                lookup[ticker.lowercase()] = stock
+                unregisteredTickers.add(stock)
+                stock
+            }
+
+        //region Internal Functionality
+
         private val lookup = mutableMapOf<String, StockTicker>()
         private val unregisteredTickers = mutableListOf<StockTicker>()
 
-        fun register(tickerString: String, primaryExchange: String, currency: String) =
-            lookup[tickerString.lowercase()] ?: run {
-                val ticker = StockTicker(tickerString, primaryExchange, currency)
-                lookup[tickerString.lowercase()] = ticker
-                unregisteredTickers.add(ticker)
-                ticker
-            }
-
-        fun arePricesInitialized() =
+        internal fun arePricesInitialized() =
             lookup.values.fold(true) { acc, ticker -> acc && ticker.arePricesInitialized() }
 
-        fun getTicker(tickerString: String) = lookup[tickerString.lowercase()]
+        internal fun getTicker(ticker: String) = lookup[ticker.lowercase()]
 
-        fun getUnregisteredTickers(): List<StockTicker> {
+        internal fun getUnregisteredTickers(): List<StockTicker> {
             val tickers = unregisteredTickers.toList()
             unregisteredTickers.clear()
             return tickers
         }
+
+        //endregion Internal Functionality
     }
 
-    fun createContract(): Contract {
+    /**
+     * The most recently received bid.
+     */
+    val bid: Double
+        get() = _bid ?: throwUninitialized("bid")
+
+    /**
+     * The most recently received ask.
+     */
+    val ask: Double
+        get() = _ask ?: throwUninitialized("ask")
+
+    /**
+     * The most recently received price: either the last trade price if one has occurred or the open price.
+     */
+    val price: Double
+        get() = _price ?: throwUninitialized("price")
+
+    override fun toString() = ticker
+
+    //region Internal Functionality
+
+    internal var _bid: Double? = null
+    internal var _ask: Double? = null
+    internal var _price: Double? = null
+
+    internal fun createContract(): Contract {
         val contract = Contract()
-        contract.symbol(tickerString)
+        contract.symbol(ticker)
         contract.secType("STK")
         contract.currency(currency)
         contract.exchange("SMART")
@@ -37,21 +78,8 @@ class StockTicker private constructor(private val tickerString: String, private 
         return contract
     }
 
-    override fun toString() = tickerString
-
-    internal var _bid: Double? = null
-    internal var _ask: Double? = null
-    internal var _price: Double? = null
-
     private fun arePricesInitialized() =
         _bid != null && _ask != null && _price != null
 
-    val bid: Double
-        get() = _bid!!
-
-    val ask: Double
-        get() = _ask!!
-
-    val price: Double
-        get() = _price!!
+    //endregion Internal Functionality
 }

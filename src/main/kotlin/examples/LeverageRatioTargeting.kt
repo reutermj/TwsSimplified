@@ -21,10 +21,15 @@ fun main() {
 
     val margin = Account.register("U")
 
-    TwsCommManager.start()
+    TwsCommManager.connect()
 
     while (true) {
-        TwsCommManager.waitForUpdate()
+        val error = TwsCommManager.waitForUpdate()
+
+        if(error != null) {
+            println(error.message)
+            continue
+        }
 
         val currentHour = Instant.now().atZone(ZoneId.of("America/New_York")).hour
         //don't make portfolio decisions before 11am EST
@@ -36,8 +41,8 @@ fun main() {
 
         if(margin.leverageRatio < 1.5) {
             //this is a simple trick to get the position that is most underweight relative to its target weight
-            val sorted = portfolio.keys.sortedBy { margin.getMarketValue(it) / (portfolio[it] ?: 0.0) }
-            val underweight = sorted.first()
+            val sorted = portfolio.entries.sortedBy { margin.getMarketValue(it.key) / it.value }
+            val underweight = sorted.first().key
             //target purchasing $2000 worth of shares rounded up to a whole share
             val quantity = ceil(2000.0 / underweight.price).toLong()
             //margin.submitOrder(PatientBuyOrder, underweight, quantity)
@@ -45,7 +50,12 @@ fun main() {
 
         if(margin.leverageRatio > 1.9) {
             //this is a simple trick to get the position that is most overweight relative to its target weight
-            val sorted = portfolio.keys.sortedByDescending { margin.getMarketValue(it) / (portfolio[it] ?: 0.0) }
+            val sorted =
+                margin.getPositions().sortedByDescending {
+                    val weight = portfolio[it]
+                    if(weight == null) Double.MAX_VALUE // sell anything that isn't in the portfolio first
+                    else margin.getMarketValue(it) / weight // then sell what is overweight
+                }
             val overweight = sorted.first()
             //target selling $2000 worth of shares rounded up to a whole share
             val quantity = Math.max(ceil(2000.0 / overweight.price), margin.getPositionSize(overweight)).toLong()
