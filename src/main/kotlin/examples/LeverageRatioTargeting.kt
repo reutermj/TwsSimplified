@@ -39,7 +39,7 @@ fun main() {
 
         if(margin.getOpenOrders().any()) continue
 
-        if(margin.leverageRatio < 1.5) {
+        if(margin.leverage < 1.5) {
             //this is a simple trick to get the position that is most underweight relative to its target weight
             val sorted = portfolio.entries.sortedBy { margin.getMarketValue(it.key) / it.value }
             val underweight = sorted.first().key
@@ -48,7 +48,7 @@ fun main() {
             //margin.submitOrder(PatientBuyOrder, underweight, quantity)
         }
 
-        if(margin.leverageRatio > 1.9) {
+        if(margin.leverage > 1.9) {
             //this is a simple trick to get the position that is most overweight relative to its target weight
             val sorted =
                 margin.getPositions().sortedByDescending {

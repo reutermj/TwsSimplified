@@ -96,7 +96,7 @@ class Account private constructor(val accountId: String) {
     /**
      * Leverage ratio as defined by Gross Position Value / Net Liquidation Value.
      */
-    val leverageRatio: Double
+    val leverage: Double
         get() = getAccountSummary(GrossPositionValue) / getAccountSummary(NetLiquidation)
 
     //region Internal Functionality
