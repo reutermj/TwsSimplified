@@ -2,19 +2,24 @@ package twscomms
 
 import com.ib.client.*
 
-class OrderWrapper internal constructor  (val orderId: Int, val ticker: StockTicker, private var _filled: Int, private var _remaining: Int, val contract: Contract, val order: Order) {
-    var filled: Int
-        get() = _filled
-        internal set(value) {
-            _filled = value
-        }
+ class OrderWrapper internal constructor  (val orderId: Int, val ticker: StockTicker, val contract: Contract, val order: Order) {
+    fun cancelOrder() {
 
-    var remaining: Int
-        get() = _remaining
-        internal set(value) {
-            _remaining = value
-        }
+    }
+
+    val filled: Long
+        get() = _filled ?: throwUninitialized("filled")
+
+    val remaining: Long
+        get() = _remaining ?: throwUninitialized("remaining")
+
+    //region Internal Functionality
+
+    internal var _filled: Long? = null
+    internal var _remaining: Long? = null
 
     internal val isInitialized: Boolean
-        get() = _filled != -1 && _remaining != -1
+        get() = _filled != null && _remaining != null
+
+    //endregion Internal Functionality
 }

@@ -69,7 +69,7 @@ class Account private constructor(val accountId: String) {
      * @return The list of open orders.
      */
     fun getOpenOrders() =
-        openOrders.values.toList()
+        openOrders.values.filter {it.isInitialized}.toList()
 
     /**
      * Submit an order.

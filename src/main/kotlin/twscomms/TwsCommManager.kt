@@ -110,10 +110,18 @@ object TwsCommManager {
     internal var arePositionsInitialized = false
 
     internal val reqidToAccount = mutableMapOf<Int, Account>()
+    internal val orderIdToAccount = mutableMapOf<Int, Account>()
 
     internal fun submitOrder(account: Account, orderKind: OrderKind, ticker: StockTicker, quantity: Long): Int {
         nextOrderId++
-        client.placeOrder(nextOrderId, ticker.createContract(), orderKind.createOrder(account, quantity))
+        orderIdToAccount[nextOrderId] = account
+        val contract = ticker.createContract()
+        val order = orderKind.createOrder(account, quantity)
+        client.placeOrder(nextOrderId, contract, order)
+        val orderWrapper = OrderWrapper(nextOrderId, ticker, contract, order)
+        orderWrapper._remaining = quantity
+        account.openOrders[nextOrderId] = orderWrapper
+
         return nextOrderId
     }
 

@@ -1,8 +1,11 @@
 package twscomms
 
+/**
+ * Used to specify account summary data.
+ */
 class AccountSummaryTag internal constructor (private val tagString: String) {
     internal companion object {
-        private val lookup = mapOf(
+        val lookup = mapOf(
             "AccountType".lowercase() to AccountType,
             "NetLiquidation".lowercase() to NetLiquidation,
             "TotalCashValue".lowercase() to TotalCashValue,

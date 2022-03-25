@@ -4,9 +4,19 @@ import com.ib.client.Decimal
 import com.ib.client.Order
 import com.ib.client.TagValue
 
+/**
+ * Base order type. Order kinds are composed using additional interfaces.
+ */
 interface OrderKind {
     val action: String
 
+    /**
+     * Creates a market order.
+     *
+     * @param account The account to place the order on.
+     * @param quantity The number of shares to buy.
+     * @return The order.
+     */
     fun createOrder(account: Account, quantity: Long): Order {
         val order = Order()
         order.account(account.accountId)

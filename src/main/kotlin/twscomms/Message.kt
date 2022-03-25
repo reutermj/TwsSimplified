@@ -166,7 +166,7 @@ internal data class OpenOrderMessage(val orderId: Int, val contract: Contract, v
             val ticker = TwsCommManager.reqidToStockTicker[orderId]
 
             if(ticker != null)
-                account.openOrders[orderId] = OrderWrapper(orderId, ticker, -1, -1, contract, order)
+                account.openOrders[orderId] = OrderWrapper(orderId, ticker, contract, order)
             else println("ReqId ${orderId} does not correspond to a registered request. This probably shouldn't happen, but ignoring message")
         }
     }
