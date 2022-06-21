@@ -10,13 +10,15 @@ fun main() {
     val AVIV = StockTicker.register("AVIV", "ARCA", "USD")
     val AVDV = StockTicker.register("AVDV", "ARCA", "USD")
     val AVES = StockTicker.register("AVES", "ARCA", "USD")
+    val DFCF = StockTicker.register("DFCF", "ARCA", "USD")
 
     val portfolio = mapOf(
-        AVLV to .2,
-        AVUV to .2,
-        AVIV to .2,
-        AVDV to .2,
-        AVES to .2
+        AVLV to .1,
+        AVUV to .1,
+        AVIV to .1,
+        AVDV to .1,
+        AVES to .1,
+        DFCF to .5,
     )
 
     val margin = Account.register("U")
@@ -39,9 +41,15 @@ fun main() {
 
         if(margin.getOpenOrders().any()) continue
 
-        val leverage = margin.getAccountSummary(GrossPositionValue) / margin.getAccountSummary(NetLiquidation)
+        val maint = margin.getAccountSummary(MaintMarginReq)
+        val maint175 = maint * 1.75
+        val net = margin.getAccountSummary(NetLiquidation)
+        val gross = margin.getAccountSummary(GrossPositionValue)
 
-        if(leverage < 1.5) {
+        val survivableDrawdown = (net - maint) / (gross - maint)
+        val survivableDrawdown175 = (net - maint175) / (gross - maint175)
+
+        if(survivableDrawdown175 > .3) {
             //this is a simple trick to get the position that is most underweight relative to its target weight
             val sorted = portfolio.entries.sortedBy { margin.getMarketValue(it.key) / it.value }
             val underweight = sorted.first().key
@@ -50,18 +58,9 @@ fun main() {
             margin.submitOrder(PatientBuyOrder, underweight, quantity)
         }
 
-        if(leverage > 1.9) {
-            //this is a simple trick to get the position that is most overweight relative to its target weight
-            val sorted =
-                margin.getPositions().sortedByDescending {
-                    val weight = portfolio[it]
-                    if(weight == null) Double.MAX_VALUE // sell anything that isn't in the portfolio first
-                    else margin.getMarketValue(it) / weight // then sell what is overweight
-                }
-            val overweight = sorted.first()
-            //target selling $2000 worth of shares rounded up to a whole share
-            val quantity = Math.max(ceil(2000.0 / overweight.price), margin.getPositionSize(overweight)).toLong()
-            margin.submitOrder(PatientSellOrder, overweight, quantity)
+        if(survivableDrawdown < .1) {
+            val quantity = (margin.getPositionSize(DFCF) / 10).toLong()
+            margin.submitOrder(PatientSellOrder, DFCF, quantity)
         }
     }
 

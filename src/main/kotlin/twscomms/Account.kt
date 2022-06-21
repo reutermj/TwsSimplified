@@ -82,23 +82,6 @@ class Account private constructor(val accountId: String) {
     fun submitOrder(orderKind: OrderKind, ticker: StockTicker, quantity: Long): Int =
         TwsCommManager.submitOrder(this, orderKind, ticker, quantity)
 
-    /**
-     * Drawdown before a margin liquidation occurs.
-     */
-    val survivableDrawdown: Double
-        get() {
-            val net = getAccountSummary(NetLiquidation)
-            val maint = getAccountSummary(MaintMarginReq)
-            val gross = getAccountSummary(GrossPositionValue)
-            return (net - maint) / (gross - maint)
-        }
-
-    /**
-     * Leverage ratio as defined by Gross Position Value / Net Liquidation Value.
-     */
-    val leverage: Double
-        get() = getAccountSummary(GrossPositionValue) / getAccountSummary(NetLiquidation)
-
     //region Internal Functionality
 
     internal val openOrders = mutableMapOf<Int, OrderWrapper>()

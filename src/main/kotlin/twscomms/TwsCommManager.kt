@@ -115,9 +115,13 @@ object TwsCommManager {
     internal fun submitOrder(account: Account, orderKind: OrderKind, ticker: StockTicker, quantity: Long): Int {
         nextOrderId++
         orderIdToAccount[nextOrderId] = account
+
+        //Place the order with TWS
         val contract = ticker.createContract()
         val order = orderKind.createOrder(account, quantity)
         client.placeOrder(nextOrderId, contract, order)
+
+        //Create the order in the account
         val orderWrapper = OrderWrapper(nextOrderId, ticker, contract, order)
         orderWrapper._remaining = quantity
         account.openOrders[nextOrderId] = orderWrapper
@@ -196,8 +200,6 @@ object TwsCommManager {
         }
 
         override fun tickPrice(tickerId: Int, field: Int, price: Double, attribs: TickAttrib) {
-            //tick type 4, 68 = last traded price
-            //14, 76 = opening price
             //if price is stale when requested, 68 reports 0 for price
             when(field) {
                 4, 68 -> messageQueue.add(StockPriceMessage(tickerId, price))

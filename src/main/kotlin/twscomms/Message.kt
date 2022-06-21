@@ -136,18 +136,39 @@ internal object PositionEnd : Message() {
 }
 
 /**
- * Identifies that an order has been filled.
+ * Identifies the status of an order.
  *
  * @param orderId The order that has been filled.
  */
 internal data class OrderStatusMessage(val orderId: Int, val filled: Long, val remaining: Long) : Message() {
     override fun process() {
-        TwsCommManager.arePositionsInitialized = false
-        TwsCommManager.isAccountSummaryInitialized = false
-        TwsCommManager.cancelPositions()
-        TwsCommManager.subscribePositions()
-        TwsCommManager.cancelAccountSummary()
-        TwsCommManager.subscribeAccountSummary()
+        val account = TwsCommManager.reqidToAccount[orderId]
+        if(account == null) {
+            println("Account $account not registered. Ignoring message")
+            return
+        }
+
+        val order = account.openOrders[orderId]
+        if(order == null) {
+            println("This is likely an error") //TODO handle
+            return
+        }
+
+        if(remaining == 0L) {
+            account.openOrders.remove(orderId)
+
+            //TODO determine order that messages are received to see if these are necessary
+            TwsCommManager.arePositionsInitialized = false
+            TwsCommManager.isAccountSummaryInitialized = false
+            TwsCommManager.cancelPositions()
+            TwsCommManager.subscribePositions()
+            TwsCommManager.cancelAccountSummary()
+            TwsCommManager.subscribeAccountSummary()
+        }
+        else {
+            order._filled = filled
+            order._remaining = remaining
+        }
     }
 }
 
