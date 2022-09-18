@@ -138,9 +138,12 @@ internal object PositionEnd : Message() {
 /**
  * Identifies the status of an order.
  *
- * @param orderId The order that has been filled.
+ * @param orderId The order.
+ * @param status A string identifying the status of the order
+ * @param filled number of shares filled as part of this order
+ * @param remaining number of shares left to be filled
  */
-internal data class OrderStatusMessage(val orderId: Int, val filled: Long, val remaining: Long) : Message() {
+internal data class OrderStatusMessage(val orderId: Int, val status: String, val filled: Long, val remaining: Long) : Message() {
     override fun process() {
         val account = TwsCommManager.reqidToAccount[orderId]
         if(account == null) {
@@ -154,10 +157,34 @@ internal data class OrderStatusMessage(val orderId: Int, val filled: Long, val r
             return
         }
 
-        if(remaining == 0L) {
+        val orderStatus =
+            when(status) {
+                "PendingSubmit" -> OrderWrapperStatus.PendingSubmit
+                "PendingCancel" -> OrderWrapperStatus.PendingCancel
+                "PreSubmitted" -> OrderWrapperStatus.PreSubmitted
+                "Submitted" -> OrderWrapperStatus.Submitted
+                "ApiCancelled" -> OrderWrapperStatus.ApiCancelled
+                "Cancelled" -> OrderWrapperStatus.Cancelled
+                "Filled" -> OrderWrapperStatus.Filled
+                "Inactive" -> OrderWrapperStatus.Inactive
+                else -> throw Exception("Got a weird order status") //TODO fix me
+            }
+
+        order._filled = filled
+        order._remaining = remaining
+        order._status = orderStatus
+
+        if(orderStatus == OrderWrapperStatus.Filled) {
             account.openOrders.remove(orderId)
 
             //TODO determine order that messages are received to see if these are necessary
+            //the purpose of this is that I want to make sure that all position and account
+            //summary information is recent and accounts for the newly filled orders before
+            //handing control back to the application
+
+            //additional considerations: what about partially filled orders, it seems like
+            //those would also need to have these kinds of checks in place
+
             TwsCommManager.arePositionsInitialized = false
             TwsCommManager.isAccountSummaryInitialized = false
             TwsCommManager.cancelPositions()
@@ -165,13 +192,19 @@ internal data class OrderStatusMessage(val orderId: Int, val filled: Long, val r
             TwsCommManager.cancelAccountSummary()
             TwsCommManager.subscribeAccountSummary()
         }
-        else {
-            order._filled = filled
-            order._remaining = remaining
-        }
     }
 }
 
+/**
+ * Called when all open orders have been sent by TWS
+ */
+internal object OpenOrderEnd : Message() {
+    override fun process() {}
+}
+
+/**
+ *
+ */
 internal data class OpenOrderMessage(val orderId: Int, val contract: Contract, val order: Order, val state: OrderState) : Message() {
     override fun process() {
         val account = Account.getAccount(order.account())

@@ -40,6 +40,7 @@ object TwsCommManager {
         subscribeAccountSummary()
         subscribeMarketData(StockTicker.getUnregisteredTickers())
         subscribePositions()
+        requestOpenOrders()
     }
 
     /**
@@ -53,6 +54,7 @@ object TwsCommManager {
                 null -> continue
                 AccountSummaryEnd -> isAccountSummaryInitialized = true
                 PositionEnd -> arePositionsInitialized = true
+                OpenOrderEnd -> areOrdersInitialized = true
                 is ErrorMessage -> return TwsError(message.code, message.message)
                 else -> message.process()
             }
@@ -63,6 +65,7 @@ object TwsCommManager {
                 subscribeMarketData(ticker)
         } while(arePositionsInitialized &&
             isAccountSummaryInitialized &&
+            areOrdersInitialized &&
             StockTicker.arePricesInitialized() &&
             Account.areOrdersInitialized())
 
@@ -86,10 +89,12 @@ object TwsCommManager {
     internal val messageQueue = ArrayBlockingQueue<Message>(1000)
 
     //Used for communication with TWS
-    private val signal: EJavaSignal
-        get() = TwsMessageReceiver.signal
+    private var wrapper: EWrapperBase? = null
+
+    private val signal: EReaderSignal
+        get() = wrapper?.signal ?: throwUninitialized("Call TwsCommManager.connect() before other api functions.")
     private val client: EClientSocket
-        get() = TwsMessageReceiver.client
+        get() = wrapper?.client ?: throwUninitialized("Call TwsCommManager.connect() before other api functions.")
 
     //Store the requests
     private var reqid: Int = 1
@@ -108,6 +113,7 @@ object TwsCommManager {
 
     internal var isAccountSummaryInitialized = false
     internal var arePositionsInitialized = false
+    internal var areOrdersInitialized = false
 
     internal val reqidToAccount = mutableMapOf<Int, Account>()
     internal val orderIdToAccount = mutableMapOf<Int, Account>()
@@ -152,6 +158,10 @@ object TwsCommManager {
         client.cancelPositions()
     }
 
+    internal fun requestOpenOrders() {
+        client.reqOpenOrders()
+    }
+
     private fun subscribeMarketData(tickers: List<StockTicker>) {
         tickers.forEach { subscribeMarketData(it) }
     }
@@ -163,6 +173,10 @@ object TwsCommManager {
         client.reqMarketDataType(3) //3=delayed, 4=delayed-frozen; 1, 2 require live data subscription
         //I dont know what the later 4 arguments do...
         client.reqMktData(id, ticker.createContract(), "", false, false, listOf())
+    }
+
+    internal fun cancelOrder(orderId: Int) {
+        client.cancelOrder(orderId)
     }
 
     //endregion Internal Functionality
@@ -189,7 +203,7 @@ object TwsCommManager {
             whyHeld: String?,
             mktCapPrice: Double
         ) {
-            messageQueue.add(OrderStatusMessage(orderId, if(filled.isZero) 0 else filled.longValue(), if(remaining.isZero) 0 else remaining.longValue()))
+            messageQueue.add(OrderStatusMessage(orderId, status, if(filled.isZero) 0 else filled.longValue(), if(remaining.isZero) 0 else remaining.longValue()))
         }
 
         override fun openOrder(
@@ -197,6 +211,10 @@ object TwsCommManager {
             orderState: OrderState
         ) {
             messageQueue.add(OpenOrderMessage(orderId, contract, order, orderState))
+        }
+
+        override fun openOrderEnd() {
+            messageQueue.add(OpenOrderEnd)
         }
 
         override fun tickPrice(tickerId: Int, field: Int, price: Double, attribs: TickAttrib) {
